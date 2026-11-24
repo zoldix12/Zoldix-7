@@ -1,11 +1,36 @@
-<div align="center">
+# سلطان الشاورما — موقع طلبات أونلاين
 
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+موقع وتطبيق ويب تقدمي (PWA) متكامل باللغة العربية (RTL) لطلبات مطعم **سلطان الشاورما**، متوافق مع الجوال والتابلت والكمبيوتر، مع خادم Python Flask لإرسال الطلبات بالبريد الإلكتروني عبر SMTP SSL.
 
-  <h1>Built with AI Studio</h2>
+## تعديل اسم المطعم والأصناف والأسعار والعروض
+لتعديل أي بيانات تخص المطعم أو المنيو دون لمس الكود البرمجي، افتح الملف الوحيد:
+`restaurant.config.json`
 
-  <p>The fastest path from prompt to production with Gemini.</p>
+يمكنك تعديل:
+- `restaurant`: اسم المطعم، الوصف، رقم الهاتف، العنوان، ساعات العمل، رسوم التوصيل، وحد التوصيل المجاني.
+- `offers`: العروض المميزة، السعر قبل الخصم وبعده، ونسبة الخصم.
+- `items`: كافة أصناف المنيو وأسعارها وإضافاتها.
+- `addons`: الإضافات الاختيارية وأسعارها.
 
-  <a href="https://aistudio.google.com/apps">Start building</a>
-
-</div>
+## التشغيل على جهازك (خطوة بخطوة)
+1. ثبّت حزم الواجهة وابنِ المشروع:
+   ```bash
+   npm install
+   npm run build
+   ```
+2. أنشئ بيئة بايثون وثبّت Flask:
+   ```bash
+   cd backend
+   python3 -m venv venv
+   source venv/bin/activate  # على ويندوز: venv\Scripts\activate
+   pip install -r requirements.txt
+   ```
+3. انسخ ملف البيئة وأضف إعدادات الإيميل:
+   ```bash
+   cp .env.example .env
+   ```
+4. شغّل الخادم:
+   ```bash
+   python app.py
+   ```
+   ثم افتح المتصفح على: `http://localhost:5001`
