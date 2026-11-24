@@ -1,11 +1,11 @@
 /**
  * لوحة سلة الطلبات الجانبية أو السفلية مع حساب الأسعار والعملة من الإعدادات الحية.
  */
-import React from 'react';
-import { Minus, Plus, Trash2, ShoppingBag, Truck, Store, CreditCard } from 'lucide-react';
+import React, { useMemo } from 'react';
+import { Minus, Plus, Trash2, ShoppingBag, Truck, Store, CreditCard, Sparkles } from 'lucide-react';
 import { formatPrice } from '../config/restaurant';
 import { useSite } from '../context/SiteContext';
-import type { CartEntry, OrderType } from '../types/menu';
+import type { CartEntry, OrderType, OrderableProduct } from '../types/menu';
 import { FoodImage } from './FoodImage';
 
 interface CartPanelProps {
@@ -19,6 +19,7 @@ interface CartPanelProps {
   onChangeOrderType: (type: OrderType) => void;
   onUpdateQuantity: (cartKey: string, delta: number) => void;
   onRemoveItem: (cartKey: string) => void;
+  onQuickAdd?: (product: OrderableProduct) => void;
   onCheckout: () => void;
 }
 
@@ -33,11 +34,21 @@ export const CartPanel: React.FC<CartPanelProps> = ({
   onChangeOrderType,
   onUpdateQuantity,
   onRemoveItem,
+  onQuickAdd,
   onCheckout,
 }) => {
   const { siteConfig } = useSite();
   const { restaurant } = siteConfig;
   const currency = restaurant.currency;
+
+  const pairingSuggestions = useMemo(() => {
+    if (!onQuickAdd || items.length === 0) return [];
+    const inCartIds = new Set(items.map((entry) => entry.itemId));
+    const pairingCategories = new Set(['drinks', 'desserts', 'sauces', 'sides']);
+    return siteConfig.items
+      .filter((it) => pairingCategories.has(it.categoryId) && !inCartIds.has(it.id))
+      .slice(0, 3);
+  }, [items, siteConfig.items, onQuickAdd]);
 
   return (
     <div className="flex flex-col h-full">
@@ -164,6 +175,45 @@ export const CartPanel: React.FC<CartPanelProps> = ({
           {remainingForFreeDelivery > 0 && (
             <div className="mt-3 p-2.5 rounded-xl bg-[var(--accent-gold-soft)] text-xs font-bold text-[var(--text-primary)] text-center">
               أضف بقيمة {formatPrice(remainingForFreeDelivery, currency)} للحصول على توصيل مجاني
+            </div>
+          )}
+
+          {pairingSuggestions.length > 0 && onQuickAdd && (
+            <div className="mt-3 pt-3 border-t border-[var(--border-hairline)] space-y-2">
+              <div className="flex items-center gap-1.5 text-xs font-extrabold text-[var(--accent-gold)]">
+                <Sparkles className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                <span>أكمل وجبتك بإضافة سريعة</span>
+              </div>
+              <div className="touch-scroll-x flex items-stretch gap-2 pb-1">
+                {pairingSuggestions.map((sug) => (
+                  <div
+                    key={sug.id}
+                    className="w-40 shrink-0 rounded-xl bg-[var(--bg-canvas)] border border-[var(--border-hairline)] p-2 flex flex-col justify-between gap-1.5"
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="w-9 h-9 rounded-lg overflow-hidden shrink-0 bg-[var(--bg-subtle)]">
+                        <FoodImage src={sug.image} alt={sug.name} className="w-full h-full" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-[11px] font-bold text-[var(--text-primary)] truncate">
+                          {sug.name}
+                        </div>
+                        <div className="text-[11px] font-black text-[var(--accent-gold)] tabular-nums">
+                          {formatPrice(sug.price, currency)}
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => onQuickAdd(sug)}
+                      className="w-full min-h-[32px] rounded-lg bg-[var(--bg-subtle)] hover:bg-[var(--accent-fire)] hover:text-white text-[var(--text-primary)] text-[11px] font-bold inline-flex items-center justify-center gap-1 transition-colors"
+                    >
+                      <Plus className="w-3.5 h-3.5" aria-hidden="true" />
+                      <span>أضف</span>
+                    </button>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 

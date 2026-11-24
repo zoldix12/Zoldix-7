@@ -3,7 +3,7 @@
  */
 import React, { useMemo, useState } from 'react';
 import { motion } from 'motion/react';
-import { Heart, ImagePlus, Plus, SlidersHorizontal, Trash2 } from 'lucide-react';
+import { Heart, ImagePlus, Plus, Search, SlidersHorizontal, Trash2, X } from 'lucide-react';
 import { formatPrice } from '../config/restaurant';
 import { useSite } from '../context/SiteContext';
 import type { MenuItem, OrderableProduct } from '../types/menu';
@@ -26,6 +26,7 @@ export const MenuSection: React.FC<MenuSectionProps> = ({
   const currency = siteConfig.restaurant.currency;
 
   const [activeCategory, setActiveCategory] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState<string>('');
   const isSectionEditable =
     (auth.role === 'admin' || (auth.isDeveloper && auth.developerMode)) && isEditMode;
 
@@ -34,24 +35,36 @@ export const MenuSection: React.FC<MenuSectionProps> = ({
     return all.filter((p) => favorites.includes(p.id));
   }, [siteConfig.offers, siteConfig.items, favorites]);
 
+  const normalizedSearch = searchQuery.trim().toLowerCase();
+
   const visibleGroups = useMemo(() => {
+    const matchesSearch = (item: MenuItem) => {
+      if (!normalizedSearch) return true;
+      return (
+        item.name.toLowerCase().includes(normalizedSearch) ||
+        item.description.toLowerCase().includes(normalizedSearch)
+      );
+    };
+
     if (activeCategory === 'all') {
       return categories
         .map((cat) => ({
           category: cat,
-          items: menuItems.filter((item) => item.categoryId === cat.id),
+          items: menuItems.filter((item) => item.categoryId === cat.id && matchesSearch(item)),
         }))
-        .filter((group) => group.items.length > 0 || isSectionEditable);
+        .filter((group) => group.items.length > 0 || (isSectionEditable && !normalizedSearch));
     }
     const found = categories.find((c) => c.id === activeCategory);
     if (!found) return [];
+    const filtered = menuItems.filter((item) => item.categoryId === found.id && matchesSearch(item));
+    if (filtered.length === 0 && normalizedSearch) return [];
     return [
       {
         category: found,
-        items: menuItems.filter((item) => item.categoryId === found.id),
+        items: filtered,
       },
     ];
-  }, [activeCategory, categories, menuItems, isSectionEditable]);
+  }, [activeCategory, categories, menuItems, isSectionEditable, normalizedSearch]);
 
   const handleAddCategory = () => {
     const newCat = {
@@ -295,7 +308,7 @@ export const MenuSection: React.FC<MenuSectionProps> = ({
         </div>
       )}
 
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+      <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
         <div>
           <h2 className="font-display font-black text-2xl sm:text-3xl text-[var(--text-primary)]">
             قائمة الطعام الكاملة
@@ -305,16 +318,43 @@ export const MenuSection: React.FC<MenuSectionProps> = ({
           </p>
         </div>
 
-        {isSectionEditable && (
-          <button
-            type="button"
-            onClick={handleAddCategory}
-            className="min-h-[42px] px-4 rounded-xl bg-[var(--accent-gold)] text-[#13100E] font-display font-black text-xs inline-flex items-center gap-1.5"
-          >
-            <Plus className="w-4 h-4" aria-hidden="true" />
-            <span>إضافة قسم منيو</span>
-          </button>
-        )}
+        <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
+          <div className="relative flex-1 sm:w-64">
+            <Search
+              className="w-4 h-4 text-[var(--text-muted)] absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none"
+              aria-hidden="true"
+            />
+            <input
+              type="search"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="ابحث عن شاورما، صاج، كنافة..."
+              aria-label="ابحث في قائمة الطعام"
+              className="w-full min-h-[42px] rounded-xl bg-[var(--bg-surface)] border border-[var(--border-hairline)] focus:border-[var(--accent-gold)] pr-9 pl-9 py-1.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                aria-label="مسح البحث"
+                className="absolute left-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-lg flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+
+          {isSectionEditable && (
+            <button
+              type="button"
+              onClick={handleAddCategory}
+              className="min-h-[42px] px-4 rounded-xl bg-[var(--accent-gold)] text-[#13100E] font-display font-black text-xs inline-flex items-center gap-1.5 shrink-0"
+            >
+              <Plus className="w-4 h-4" aria-hidden="true" />
+              <span>إضافة قسم منيو</span>
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="safari-sticky top-[56px] sm:top-[64px] z-30 -mx-4 px-4 sm:mx-0 sm:px-0 py-2.5 bg-[var(--bg-header)] safari-blur border-b border-[var(--border-hairline)] mb-6">
@@ -361,65 +401,83 @@ export const MenuSection: React.FC<MenuSectionProps> = ({
       </div>
 
       <div className="space-y-10">
-        {visibleGroups.map(({ category, items }) => (
-          <div key={category.id}>
-            <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-              {isSectionEditable ? (
-                <div className="flex flex-wrap items-center gap-2">
-                  <input
-                    type="text"
-                    value={category.name}
-                    onChange={(e) =>
-                      setDraftConfig((p) => ({
-                        ...p,
-                        categories: p.categories.map((c) =>
-                          c.id === category.id ? { ...c, name: e.target.value } : c
-                        ),
-                      }))
-                    }
-                    className="rounded-xl bg-[var(--bg-surface)] border border-[var(--accent-gold)]/60 px-3 py-1.5 font-display font-black text-lg text-[var(--text-primary)]"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => handleAddItemToCategory(category.id)}
-                    className="min-h-[38px] px-3 rounded-xl bg-[var(--accent-fire)] text-white text-xs font-extrabold inline-flex items-center gap-1"
-                  >
-                    <Plus className="w-3.5 h-3.5" aria-hidden="true" />
-                    <span>صنف جديد</span>
-                  </button>
-                  {categories.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => {
+        {visibleGroups.length === 0 ? (
+          <div className="p-8 rounded-3xl bg-[var(--bg-surface)] border border-dashed border-[var(--border-strong)] text-center space-y-3">
+            <p className="font-display font-bold text-base text-[var(--text-primary)]">
+              لا توجد أطباق مطابقة لعبارة البحث "{searchQuery}"
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setSearchQuery('');
+                setActiveCategory('all');
+              }}
+              className="min-h-[42px] px-5 rounded-xl bg-[var(--accent-fire)] hover:bg-[var(--accent-fire-hover)] text-white font-display font-bold text-sm"
+            >
+              عرض جميع الأصناف
+            </button>
+          </div>
+        ) : (
+          visibleGroups.map(({ category, items }) => (
+            <div key={category.id}>
+              <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+                {isSectionEditable ? (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <input
+                      type="text"
+                      value={category.name}
+                      onChange={(e) =>
                         setDraftConfig((p) => ({
                           ...p,
-                          categories: p.categories.filter((c) => c.id !== category.id),
-                          items: p.items.filter((i) => i.categoryId !== category.id),
-                        }));
-                        if (activeCategory === category.id) setActiveCategory('all');
-                      }}
-                      className="min-h-[38px] px-3 rounded-xl bg-[var(--accent-fire-soft)] text-[var(--accent-fire)] text-xs font-bold inline-flex items-center gap-1"
+                          categories: p.categories.map((c) =>
+                            c.id === category.id ? { ...c, name: e.target.value } : c
+                          ),
+                        }))
+                      }
+                      className="rounded-xl bg-[var(--bg-surface)] border border-[var(--accent-gold)]/60 px-3 py-1.5 font-display font-black text-lg text-[var(--text-primary)]"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleAddItemToCategory(category.id)}
+                      className="min-h-[38px] px-3 rounded-xl bg-[var(--accent-fire)] text-white text-xs font-extrabold inline-flex items-center gap-1"
                     >
-                      <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
-                      <span>حذف القسم</span>
+                      <Plus className="w-3.5 h-3.5" aria-hidden="true" />
+                      <span>صنف جديد</span>
                     </button>
-                  )}
-                </div>
-              ) : (
-                <h3 className="font-display font-black text-xl sm:text-2xl text-[var(--text-primary)]">
-                  {category.name}
-                </h3>
-              )}
-              <span className="text-xs font-bold text-[var(--text-muted)] tabular-nums">
-                {items.length} أصناف
-              </span>
-            </div>
+                    {categories.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDraftConfig((p) => ({
+                            ...p,
+                            categories: p.categories.filter((c) => c.id !== category.id),
+                            items: p.items.filter((i) => i.categoryId !== category.id),
+                          }));
+                          if (activeCategory === category.id) setActiveCategory('all');
+                        }}
+                        className="min-h-[38px] px-3 rounded-xl bg-[var(--accent-fire-soft)] text-[var(--accent-fire)] text-xs font-bold inline-flex items-center gap-1"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
+                        <span>حذف القسم</span>
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <h3 className="font-display font-black text-xl sm:text-2xl text-[var(--text-primary)]">
+                    {category.name}
+                  </h3>
+                )}
+                <span className="text-xs font-bold text-[var(--text-muted)] tabular-nums">
+                  {items.length} أصناف
+                </span>
+              </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-5">
-              {items.map((it) => renderCard(it, true))}
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-5">
+                {items.map((it) => renderCard(it, true))}
+              </div>
             </div>
-          </div>
-        ))}
+          ))
+        )}
       </div>
     </section>
   );

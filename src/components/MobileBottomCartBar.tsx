@@ -5,7 +5,7 @@ import React, { useEffect } from 'react';
 import { ShoppingBag, ChevronUp, X } from 'lucide-react';
 import { formatPrice } from '../config/restaurant';
 import { useSite } from '../context/SiteContext';
-import type { CartEntry, OrderType } from '../types/menu';
+import type { CartEntry, OrderType, OrderableProduct } from '../types/menu';
 import { CartPanel } from './CartPanel';
 
 interface MobileBottomCartBarProps {
@@ -23,6 +23,7 @@ interface MobileBottomCartBarProps {
   onChangeOrderType: (type: OrderType) => void;
   onUpdateQuantity: (cartKey: string, delta: number) => void;
   onRemoveItem: (cartKey: string) => void;
+  onQuickAdd?: (product: OrderableProduct) => void;
   onCheckout: () => void;
 }
 
@@ -41,6 +42,7 @@ export const MobileBottomCartBar: React.FC<MobileBottomCartBarProps> = ({
   onChangeOrderType,
   onUpdateQuantity,
   onRemoveItem,
+  onQuickAdd,
   onCheckout,
 }) => {
   const { siteConfig } = useSite();
@@ -129,6 +131,7 @@ export const MobileBottomCartBar: React.FC<MobileBottomCartBarProps> = ({
                 onChangeOrderType={onChangeOrderType}
                 onUpdateQuantity={onUpdateQuantity}
                 onRemoveItem={onRemoveItem}
+                onQuickAdd={onQuickAdd}
                 onCheckout={() => {
                   onCloseSheet();
                   onCheckout();

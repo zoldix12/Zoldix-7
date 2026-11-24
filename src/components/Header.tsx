@@ -106,16 +106,16 @@ export const Header: React.FC<HeaderProps> = ({
           aria-label="التنقل الرئيسي"
           className="hidden lg:flex items-center gap-6 text-sm font-bold text-[var(--text-secondary)]"
         >
-          <a href="#top" className="hover:text-[var(--text-primary)] transition-colors py-2">
+          <a href="#top" className="hover:text-[var(--text-primary)] transition-colors py-2 whitespace-nowrap shrink-0">
             التجربة
           </a>
-          <a href="#offers" className="hover:text-[var(--text-primary)] transition-colors py-2">
+          <a href="#offers" className="hover:text-[var(--text-primary)] transition-colors py-2 whitespace-nowrap shrink-0">
             العروض
           </a>
-          <a href="#menu" className="hover:text-[var(--text-primary)] transition-colors py-2">
+          <a href="#menu" className="hover:text-[var(--text-primary)] transition-colors py-2 whitespace-nowrap shrink-0">
             المنيو
           </a>
-          <a href="#contact" className="hover:text-[var(--text-primary)] transition-colors py-2">
+          <a href="#contact" className="hover:text-[var(--text-primary)] transition-colors py-2 whitespace-nowrap shrink-0">
             التواصل
           </a>
         </nav>

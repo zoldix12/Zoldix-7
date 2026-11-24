@@ -57,6 +57,10 @@
     font-family: 'Cairo', system-ui, -apple-system, 'Segoe UI', sans-serif;
   }
 
+  h1, h2, h3 {
+    text-wrap: balance;
+  }
+
   /* منع التكبير التلقائي في سفاري آيفون عند التركيز على الحقول */
   input,
   textarea,

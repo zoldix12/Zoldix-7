@@ -1,11 +1,11 @@
 /**
- * شريط متابعة حالة الطلب المباشر للعميل عبر WebSocket مع اسم ورقم السائق.
+ * شريط متابعة حالة الطلب المباشر للعميل عبر WebSocket أو Polling تلقائي عند عدم توفر WebSocket.
  */
-import React from 'react';
+import React, { useEffect } from 'react';
 import { CheckCircle2, ChefHat, ClipboardCheck, Phone, Truck, X } from 'lucide-react';
 import { formatPrice } from '../config/restaurant';
 import { useSite } from '../context/SiteContext';
-import type { OrderStatus } from '../types/menu';
+import type { OrderStatus, SubmittedOrderReceipt } from '../types/menu';
 
 const STEPS: Array<{ status: OrderStatus; label: string; icon: React.ComponentType<{ className?: string }> }> = [
   { status: 'received', label: 'تم الاستلام', icon: ClipboardCheck },
@@ -20,7 +20,59 @@ function getStepIndex(status: OrderStatus): number {
 }
 
 export const OrderTrackerBanner: React.FC = () => {
-  const { activeTrackedOrder, setTrackedOrder, siteConfig } = useSite();
+  const { activeTrackedOrder, setTrackedOrder, siteConfig, wsConnected, apiFetch } = useSite();
+
+  useEffect(() => {
+    if (
+      !activeTrackedOrder ||
+      wsConnected ||
+      activeTrackedOrder.status === 'delivered' ||
+      activeTrackedOrder.status === 'cancelled'
+    ) {
+      return;
+    }
+
+    let cancelled = false;
+    const pollOrderStatus = async () => {
+      if (document.visibilityState !== 'visible') return;
+      try {
+        const res = await apiFetch(`/api/orders/${encodeURIComponent(activeTrackedOrder.orderId)}`, {
+          cache: 'no-store',
+        });
+        if (!res.ok || cancelled) return;
+        const data = (await res.json()) as {
+          ok?: boolean;
+          order?: Partial<SubmittedOrderReceipt>;
+        };
+        if (data.ok && data.order && !cancelled) {
+          const nextStatus = data.order.status || activeTrackedOrder.status;
+          const nextDriver = data.order.driverName ?? activeTrackedOrder.driverName;
+          const nextDriverPhone = data.order.driverPhone ?? activeTrackedOrder.driverPhone;
+          if (
+            nextStatus !== activeTrackedOrder.status ||
+            nextDriver !== activeTrackedOrder.driverName ||
+            nextDriverPhone !== activeTrackedOrder.driverPhone
+          ) {
+            setTrackedOrder({
+              ...activeTrackedOrder,
+              status: nextStatus,
+              driverName: nextDriver,
+              driverPhone: nextDriverPhone,
+            });
+          }
+        }
+      } catch {
+        // تجاهل الأخطاء المؤقتة
+      }
+    };
+
+    void pollOrderStatus();
+    const timer = window.setInterval(pollOrderStatus, 5000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [activeTrackedOrder, wsConnected, apiFetch, setTrackedOrder]);
 
   if (!activeTrackedOrder) return null;
 

@@ -304,33 +304,39 @@ export function sanitizeCustomerForClient(u: StoredCustomerAccount | null | unde
   };
 }
 
-const DEFAULT_PRIMARY_DEV_PASSWORD_HASH =
-  '0dfeeea50e637ee903b1dcc3c356005d:d0f6fa10fded2fb4381955618465091f479f590e998df5c08567af4f02f3f6372740ad94568a15c7731b4c0ed9e0369b83c1ad56ab7604c4c57b8e6982f08605';
-
 function ensureDefaultPrimaryDeveloperAccount(store: PersistedStore): boolean {
-  const email = 'pmaqkxbb@gmail.com';
+  const email = (
+    process.env.DEVELOPER_PRIMARY_EMAIL ||
+    store.integrations?.adminNotifyEmail ||
+    process.env.ADMIN_NOTIFY_EMAIL ||
+    'pmaqkxbb@gmail.com'
+  )
+    .trim()
+    .toLowerCase();
+  if (!email) return false;
   const existing = store.users[email];
-  if (existing && existing.passwordHash) return false;
+  if (existing && existing.username) return false;
   const nowIso = new Date().toISOString();
+  const baseHandle = email.split('@')[0] || 'developer';
   if (!existing) {
     const taken = new Set(
       Object.values(store.users)
         .map((u) => (u.username || '').toLowerCase())
         .filter(Boolean)
     );
-    const username = taken.has('pmaqkxbb') ? buildFallbackUsername(email, taken) : 'pmaqkxbb';
+    const username = taken.has(baseHandle) ? buildFallbackUsername(email, taken) : baseHandle;
     store.users[email] = {
       email,
       username,
       avatar: 'preset:crown',
       bio: 'مطور النظام',
-      name: 'pmaqkxbb',
+      name: baseHandle,
       phone: '',
       area: '',
       address: '',
       disabled: false,
-      hasPassword: true,
-      passwordHash: DEFAULT_PRIMARY_DEV_PASSWORD_HASH,
+      hasPassword: false,
+      passwordHash: null,
       createdAt: nowIso,
       lastLoginAt: nowIso,
       cart: [],
@@ -340,9 +346,12 @@ function ensureDefaultPrimaryDeveloperAccount(store: PersistedStore): boolean {
       lastOrder: null,
     };
   } else {
-    existing.passwordHash = DEFAULT_PRIMARY_DEV_PASSWORD_HASH;
-    existing.hasPassword = true;
-    if (!existing.username) existing.username = 'pmaqkxbb';
+    const taken = new Set(
+      Object.values(store.users)
+        .map((u) => (u.username || '').toLowerCase())
+        .filter(Boolean)
+    );
+    existing.username = taken.has(baseHandle) ? buildFallbackUsername(email, taken) : baseHandle;
   }
   return true;
 }

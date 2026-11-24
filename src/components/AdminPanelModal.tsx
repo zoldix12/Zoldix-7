@@ -126,6 +126,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
   const {
     auth,
     apiFetch,
+    wsConnected,
     setAdminSession,
     impersonateUser,
     logout,
@@ -323,6 +324,35 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
       loadAdminResources();
     }
   }, [isOpen, auth.role]);
+
+  useEffect(() => {
+    if (!isOpen || auth.role !== 'admin' || wsConnected) return;
+    let active = true;
+    const pollOrdersAndChats = async () => {
+      if (document.visibilityState !== 'visible') return;
+      try {
+        const [ordersRes, chatsRes] = await Promise.all([
+          apiFetch('/api/admin/orders', { cache: 'no-store' }),
+          apiFetch('/api/admin/chats', { cache: 'no-store' }),
+        ]);
+        if (ordersRes.ok && active) {
+          const oData = (await ordersRes.json()) as { orders?: SubmittedOrderReceipt[] };
+          if (oData.orders) setOrdersList(oData.orders);
+        }
+        if (chatsRes.ok && active) {
+          const cData = (await chatsRes.json()) as { threads?: ChatThread[] };
+          if (cData.threads) setChatThreads(cData.threads);
+        }
+      } catch {
+        // تجاهل الخطأ المؤقت
+      }
+    };
+    const timer = window.setInterval(pollOrdersAndChats, 5000);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, [isOpen, auth.role, wsConnected, apiFetch]);
 
   useEffect(() => {
     if (auth.role !== 'admin') return;

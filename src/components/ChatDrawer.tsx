@@ -42,7 +42,7 @@ export const ChatDrawer: React.FC<ChatDrawerProps> = ({
   onClose,
   onUnreadChange,
 }) => {
-  const { siteConfig, auth, apiFetch, subscribeWs, sendWsPayload } = useSite();
+  const { siteConfig, auth, apiFetch, wsConnected, subscribeWs, sendWsPayload } = useSite();
   const guestId = useMemo(() => getOrCreateDeviceId(), []);
 
   const myEmail = useMemo(() => {
@@ -196,6 +196,46 @@ export const ChatDrawer: React.FC<ChatDrawerProps> = ({
       active = false;
     };
   }, [isOpen, activeThreadId, restaurantThreadId, apiFetch, onUnreadChange]);
+
+  // التحديث التلقائي عبر Polling عند العمل في بيئة Serverless بدون WebSocket
+  useEffect(() => {
+    if (!isOpen || wsConnected) return;
+    let active = true;
+    const pollChat = async () => {
+      if (document.visibilityState !== 'visible') return;
+      void loadThreadsOverview();
+      try {
+        const res = await apiFetch(
+          `/api/chat/thread?threadId=${encodeURIComponent(activeThreadId)}`,
+          { cache: 'no-store' }
+        );
+        if (res.ok && active) {
+          const data = (await res.json()) as { thread?: ChatThread };
+          if (data.thread) {
+            setActiveThreadData(data.thread);
+            if (data.thread.threadId === restaurantThreadId) {
+              setRestaurantThread(data.thread);
+            } else if (data.thread.threadType === 'dm') {
+              setDmThreads((prev) => {
+                const exists = prev.some((t) => t.threadId === data.thread!.threadId);
+                return exists
+                  ? prev.map((t) => (t.threadId === data.thread!.threadId ? data.thread! : t))
+                  : [data.thread!, ...prev];
+              });
+            }
+          }
+        }
+      } catch {
+        // تجاهل الخطأ المؤقت
+      }
+    };
+
+    const timer = window.setInterval(pollChat, 4000);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, [isOpen, wsConnected, activeThreadId, restaurantThreadId, apiFetch, loadThreadsOverview]);
 
   // البحث باليوزر عبر الخادم
   useEffect(() => {

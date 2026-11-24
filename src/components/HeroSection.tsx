@@ -1,10 +1,10 @@
 /**
  * واجهة البطولة الرئيسية بأسلوب MotionSites السينمائي الكامل:
- * خلفية الشاشة الكاملة (100dvh) تعمل مباشرة عبر مئة إطار من فيديو Veo 3
- * وتتحرك بسلاسة تامة مع تمرير الصفحة دون أي أزرار تشغيل أو أشرطة تقديم جانبية.
+ * خلفية الشاشة الكاملة (100dvh) تعمل مباشرة عبر مئة إطار من فيديو الشواء
+ * وتتحرك بسلاسة تامة مع تمرير الصفحة أو عبر أزرار التشغيل/الإيقاف والتنقل بين الفصول الثلاثة.
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowDown, Flame, Heart, ImagePlus, UtensilsCrossed } from 'lucide-react';
+import { ArrowDown, Flame, Heart, ImagePlus, Pause, Play, UtensilsCrossed } from 'lucide-react';
 import { formatPrice } from '../config/restaurant';
 import { useSite } from '../context/SiteContext';
 import type { OrderableProduct } from '../types/menu';
@@ -33,6 +33,9 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onSelectProduct }) => 
 
   const [currentFrame, setCurrentFrame] = useState(0);
   const [scrollProgress, setScrollProgress] = useState(0);
+  const [isAutoPlaying, setIsAutoPlaying] = useState(false);
+  const isAutoPlayingRef = useRef(false);
+  isAutoPlayingRef.current = isAutoPlaying;
 
   const productById = useMemo(() => {
     const all: OrderableProduct[] = [...siteConfig.offers, ...siteConfig.items];
@@ -129,7 +132,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onSelectProduct }) => 
     return () => ro.disconnect();
   }, [drawFrame]);
 
-  // ربط موضع التمرير مباشرة بجميع الإطارات المئة بأسلوب MotionSites الانسيابي
+  // ربط موضع التمرير والتشغيل التلقائي مباشرة بجميع الإطارات المئة
   useEffect(() => {
     const updateFromScroll = () => {
       const track = trackRef.current;
@@ -137,8 +140,10 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onSelectProduct }) => 
       const rect = track.getBoundingClientRect();
       const maxScrollable = Math.max(1, track.offsetHeight - window.innerHeight);
       const rawProgress = Math.max(0, Math.min(1, -rect.top / maxScrollable));
-      targetFloatFrameRef.current = rawProgress * (TOTAL_FRAMES - 1);
       setScrollProgress(rawProgress);
+      if (!isAutoPlayingRef.current) {
+        targetFloatFrameRef.current = rawProgress * (TOTAL_FRAMES - 1);
+      }
     };
 
     updateFromScroll();
@@ -147,10 +152,20 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onSelectProduct }) => 
 
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     let rafId = 0;
+    let lastTime = performance.now();
 
-    const renderLoop = () => {
+    const renderLoop = (now: number) => {
+      const dtMs = Math.min(64, Math.max(0, now - lastTime));
+      lastTime = now;
+
+      if (isAutoPlayingRef.current && !reducedMotion) {
+        // تشغيل العرض بمعدل سلس ~24 إطار بالثانية عبر مئة إطار
+        const nextAuto = targetFloatFrameRef.current + dtMs * 0.024;
+        targetFloatFrameRef.current = nextAuto >= TOTAL_FRAMES - 1 ? 0 : nextAuto;
+      }
+
       const target = targetFloatFrameRef.current;
-      if (reducedMotion) {
+      if (reducedMotion || isAutoPlayingRef.current) {
         currentFloatFrameRef.current = target;
       } else {
         currentFloatFrameRef.current += (target - currentFloatFrameRef.current) * 0.16;
@@ -179,6 +194,43 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onSelectProduct }) => 
     };
   }, [drawFrame]);
 
+  const togglePlayback = () => {
+    setIsAutoPlaying((prev) => {
+      const next = !prev;
+      if (!next) {
+        targetFloatFrameRef.current = scrollProgress * (TOTAL_FRAMES - 1);
+      } else if (targetFloatFrameRef.current >= TOTAL_FRAMES - 2) {
+        targetFloatFrameRef.current = 0;
+      }
+      return next;
+    });
+  };
+
+  const jumpToChapter = (chIdx: number) => {
+    const ch = heroChapters[chIdx];
+    if (!ch) return;
+    const midFrame = Math.round((ch.startFrame + ch.endFrame) / 2);
+    const targetProgress = midFrame / (TOTAL_FRAMES - 1);
+    targetFloatFrameRef.current = midFrame;
+    currentFloatFrameRef.current = midFrame;
+    setCurrentFrame(midFrame);
+    drawFrame(midFrame);
+
+    const track = trackRef.current;
+    if (!isAutoPlaying && track) {
+      const maxScrollable = Math.max(1, track.offsetHeight - window.innerHeight);
+      const topOffset = track.getBoundingClientRect().top + window.scrollY;
+      window.scrollTo({
+        top: topOffset + targetProgress * maxScrollable,
+        behavior: 'smooth',
+      });
+    }
+  };
+
+  const visualProgress = isAutoPlaying
+    ? currentFrame / (TOTAL_FRAMES - 1)
+    : scrollProgress;
+
   const activeChapter = useMemo(() => {
     const found = heroChapters.find(
       (ch) => currentFrame >= ch.startFrame && currentFrame <= ch.endFrame
@@ -188,7 +240,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onSelectProduct }) => 
 
   const activeChapterIdx = heroChapters.findIndex((ch) => ch.id === activeChapter?.id);
   const activeProduct = activeChapter ? productById[activeChapter.productId] : undefined;
-  const isFirstPhase = scrollProgress < 0.34;
+  const isFirstPhase = visualProgress < 0.24 && !isAutoPlaying;
 
   return (
     <section
@@ -450,24 +502,74 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onSelectProduct }) => 
             )
           )}
 
-          {/* مؤشر التمرير الهادئ في الأسفل وشريط التقدم الرقيق */}
-          <div className="mt-6 flex items-center justify-between gap-4 text-xs text-[#C7B9A8]">
-            <a
-              href="#offers"
-              className="inline-flex items-center gap-1.5 font-bold hover:text-white transition-colors"
-            >
-              <ArrowDown className="w-4 h-4 text-[var(--accent-gold)] animate-bounce" aria-hidden="true" />
-              <span>مرّر للأسفل لمواصلة المشاهدة والانتقال إلى القائمة</span>
-            </a>
+          {/* أزرار التشغيل والتوقف والتنقل بين الفصول الثلاثة ومؤشر التمرير */}
+          <div className="mt-6 flex flex-wrap items-center justify-between gap-3 text-xs text-[#C7B9A8]">
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={togglePlayback}
+                aria-label={isAutoPlaying ? 'إيقاف العرض التفاعلي مؤقتاً' : 'تشغيل العرض التفاعلي تلقائياً'}
+                className="min-h-[38px] px-3.5 py-1.5 rounded-xl bg-black/55 hover:bg-black/75 safari-blur border border-white/20 text-[#EFE7DC] font-display font-bold inline-flex items-center gap-1.5 whitespace-nowrap shrink-0 transition-colors"
+              >
+                {isAutoPlaying ? (
+                  <>
+                    <Pause className="w-3.5 h-3.5 text-[var(--accent-gold)]" aria-hidden="true" />
+                    <span>إيقاف العرض</span>
+                  </>
+                ) : (
+                  <>
+                    <Play className="w-3.5 h-3.5 text-[var(--accent-gold)]" aria-hidden="true" />
+                    <span>تشغيل العرض</span>
+                  </>
+                )}
+              </button>
 
-            <div
-              className="w-28 sm:w-40 h-1 rounded-full bg-white/15 overflow-hidden shrink-0"
-              aria-hidden="true"
-            >
               <div
-                className="h-full rounded-full bg-[var(--accent-gold)] transition-all duration-100"
-                style={{ width: `${Math.round(scrollProgress * 100)}%` }}
-              />
+                className="inline-flex items-center gap-1 rounded-xl bg-black/45 safari-blur border border-white/15 p-1"
+                role="group"
+                aria-label="فصول العرض التفاعلي"
+              >
+                {heroChapters.map((ch, idx) => {
+                  const isActiveCh = activeChapter?.id === ch.id && (!isFirstPhase || isAutoPlaying);
+                  return (
+                    <button
+                      key={ch.id}
+                      type="button"
+                      onClick={() => jumpToChapter(idx)}
+                      className={`min-h-[30px] px-2.5 rounded-lg text-[11px] font-bold whitespace-nowrap shrink-0 transition-colors ${
+                        isActiveCh
+                          ? 'bg-[var(--accent-fire)] text-white'
+                          : 'text-[#C7B9A8] hover:text-white hover:bg-white/10'
+                      }`}
+                    >
+                      فصل {idx + 1}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <a
+                href="#offers"
+                className="hidden sm:inline-flex items-center gap-1.5 font-bold hover:text-white transition-colors whitespace-nowrap shrink-0 ms-1"
+              >
+                <ArrowDown className="w-4 h-4 text-[var(--accent-gold)] animate-bounce" aria-hidden="true" />
+                <span>مرّر للأسفل للانتقال إلى القائمة</span>
+              </a>
+            </div>
+
+            <div className="flex items-center gap-2.5 shrink-0">
+              <span className="tabular-nums text-[11px] font-bold text-[#C7B9A8]">
+                {currentFrame + 1}/{TOTAL_FRAMES}
+              </span>
+              <div
+                className="w-24 sm:w-36 h-1.5 rounded-full bg-white/15 overflow-hidden shrink-0"
+                aria-hidden="true"
+              >
+                <div
+                  className="h-full rounded-full bg-[var(--accent-gold)] transition-all duration-100"
+                  style={{ width: `${Math.round(visualProgress * 100)}%` }}
+                />
+              </div>
             </div>
           </div>
         </div>

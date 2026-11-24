@@ -21,6 +21,7 @@ import { MobileBottomCartBar } from './components/MobileBottomCartBar';
 import { OffersSection } from './components/OffersSection';
 import { OfflineIndicator } from './components/OfflineIndicator';
 import { OrderTrackerBanner } from './components/OrderTrackerBanner';
+import { SignatureCraftStrip } from './components/SignatureCraftStrip';
 import { useSite } from './context/SiteContext';
 import { useCart } from './hooks/useCart';
 import type { CartEntry, CustomerAccount, OrderableProduct, SubmittedOrderReceipt } from './types/menu';
@@ -254,6 +255,8 @@ export default function App() {
 
         <OrderTrackerBanner />
 
+        <SignatureCraftStrip />
+
         <OffersSection
           countByItemId={countByItemId}
           onSelectProduct={setSelectedProduct}
@@ -297,6 +300,7 @@ export default function App() {
                 onChangeOrderType={setOrderType}
                 onUpdateQuantity={updateQuantity}
                 onRemoveItem={removeItem}
+                onQuickAdd={handleQuickAdd}
                 onCheckout={() => setIsCheckoutOpen(true)}
               />
             </aside>
@@ -323,6 +327,7 @@ export default function App() {
         onChangeOrderType={setOrderType}
         onUpdateQuantity={updateQuantity}
         onRemoveItem={removeItem}
+        onQuickAdd={handleQuickAdd}
         onCheckout={() => setIsCheckoutOpen(true)}
       />
 

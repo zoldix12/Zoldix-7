@@ -2,7 +2,7 @@
  * قسم من نحن وساعات العمل والموقع ورقم الهاتف مع إخفاء بوابة الإدارة تماماً عن الزوار.
  */
 import React, { useRef } from 'react';
-import { Clock, MapPin, Phone } from 'lucide-react';
+import { Clock, ExternalLink, MapPin, Phone } from 'lucide-react';
 import { useSite } from '../context/SiteContext';
 import { PWAInstallButton } from './PWAInstallButton';
 
@@ -14,6 +14,9 @@ export const AboutFooter: React.FC<AboutFooterProps> = ({ onSecretOpenAdmin }) =
   const { siteConfig } = useSite();
   const { restaurant } = siteConfig;
   const tapCounterRef = useRef<{ count: number; lastAt: number }>({ count: 0, lastAt: 0 });
+  const mapsSearchUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+    restaurant.address || 'عمّان - شارع المدينة المنورة'
+  )}`;
 
   // إيماءة سرية غير مرئية على الهاتف فقط (خمس نقرات سريعة على سطر الحقوق) بالإضافة إلى الاختصار Ctrl + Z
   const handleHiddenMobileGesture = () => {
@@ -72,14 +75,25 @@ export const AboutFooter: React.FC<AboutFooterProps> = ({ onSecretOpenAdmin }) =
               </a>
             </div>
 
-            <div className="sm:col-span-2 p-4 rounded-2xl bg-[var(--bg-canvas)] border border-[var(--border-hairline)] space-y-1.5">
-              <div className="flex items-center gap-2 font-display font-bold text-sm text-[var(--accent-gold)]">
-                <MapPin className="w-4 h-4 shrink-0" aria-hidden="true" />
-                <span>الموقع</span>
+            <div className="sm:col-span-2 p-4 rounded-2xl bg-[var(--bg-canvas)] border border-[var(--border-hairline)] flex flex-wrap items-center justify-between gap-3">
+              <div className="space-y-1.5 min-w-0">
+                <div className="flex items-center gap-2 font-display font-bold text-sm text-[var(--accent-gold)]">
+                  <MapPin className="w-4 h-4 shrink-0" aria-hidden="true" />
+                  <span>الموقع</span>
+                </div>
+                <p className="text-sm text-[var(--text-primary)] font-medium">
+                  {restaurant.address}
+                </p>
               </div>
-              <p className="text-sm text-[var(--text-primary)] font-medium">
-                {restaurant.address}
-              </p>
+              <a
+                href={mapsSearchUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="min-h-[40px] px-3.5 py-2 rounded-xl bg-[var(--bg-surface)] hover:bg-[var(--bg-subtle)] border border-[var(--border-hairline)] text-xs font-bold text-[var(--accent-gold)] inline-flex items-center gap-1.5 whitespace-nowrap shrink-0 transition-colors"
+              >
+                <span>الاتجاهات على الخريطة</span>
+                <ExternalLink className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+              </a>
             </div>
           </div>
         </div>

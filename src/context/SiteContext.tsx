@@ -203,7 +203,7 @@ function applyThemeToDocument(theme: SiteTheme, brandName: string): void {
   root.setProperty('--accent-gold', theme.accentSecondary);
   root.setProperty('--accent-gold-soft', hexToRgba(theme.accentSecondary, 0.15, 'rgba(221, 161, 94, 0.15)'));
 
-  document.title = `${brandName} للطلبات وتجربة الشواء`;
+  document.title = `${brandName} للطلبات وتجربة الشواء الفاخرة`;
   const themeMeta = document.querySelector('meta[name="theme-color"]');
   if (themeMeta) {
     themeMeta.setAttribute('content', theme.canvas);
@@ -295,12 +295,12 @@ export const SiteProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (res.ok && res.headers.get('content-type')?.includes('application/json')) {
         const data = (await res.json()) as SiteConfig;
         setSiteConfig(data);
-        setDraftConfig(data);
+        setDraftConfig((prev) => (isEditMode ? prev : data));
       }
     } catch {
       // الاحتفاظ بالنسخة المخزنة مؤقتاً
     }
-  }, []);
+  }, [isEditMode]);
 
   const refreshSession = useCallback(async () => {
     try {
@@ -344,6 +344,17 @@ export const SiteProvider: React.FC<{ children: React.ReactNode }> = ({ children
     refreshSiteConfig();
     refreshSession();
   }, [refreshSiteConfig, refreshSession]);
+
+  // مزامنة إعدادات الموقع دورياً في بيئات Serverless بدون WebSocket
+  useEffect(() => {
+    if (wsConnected) return;
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        void refreshSiteConfig();
+      }
+    }, 30_000);
+    return () => window.clearInterval(timer);
+  }, [wsConnected, refreshSiteConfig]);
 
   // مزامنة آخر طلب نشط من حساب العميل عند تسجيل الدخول
   useEffect(() => {
